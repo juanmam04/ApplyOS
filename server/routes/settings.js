@@ -11,8 +11,9 @@ router.get('/apply', (_req, res) => {
     has_session: hasBrowserProfile(),
     has_credentials: !!(user?.trim() && process.env.YC_APPLY_PASSWORD?.trim()),
     username: user ? `${user.slice(0, 3)}***` : null,
+    auto_apply: process.env.AUTO_APPLY !== 'false',
     dryRun: process.env.APPLY_DRY_RUN === 'true',
-    headless: process.env.APPLY_HEADLESS !== 'false',
+    headless: process.env.APPLY_HEADLESS === 'true',
   });
 });
 
@@ -20,7 +21,7 @@ router.post('/apply/test', async (_req, res) => {
   try {
     if (!hasBrowserProfile()) {
       return res.status(400).json({
-        error: 'Sin sesión guardada. Ejecuta: cd server && npm run yc:login',
+        error: 'Sin sesión guardada. En la carpeta ApplyOS: npm run yc:login',
       });
     }
 

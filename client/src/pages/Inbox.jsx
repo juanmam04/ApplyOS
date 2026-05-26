@@ -22,7 +22,7 @@ function ScoreRing({ label, score, color }) {
   );
 }
 
-function OpportunityCard({ opp, onApply, onConfirm, onDismiss, onResearch, applying, confirming, researching, applyConfigured }) {
+function OpportunityCard({ opp, onApply, onConfirm, onDismiss, onResearch, onRegenerateDraft, applying, confirming, researching, regenerating, applyConfigured }) {
   const [expanded, setExpanded] = useState(true);
   const draft = opp.application_draft;
   const startupBrief = opp.analysis?.startup_brief;
@@ -125,12 +125,28 @@ function OpportunityCard({ opp, onApply, onConfirm, onDismiss, onResearch, apply
             Borrador de aplicación (IA)
           </button>
           {expanded && (
-            <ApplicationDraftPanel
-              draft={draft}
-              companyName={opp.company_name}
-              roleTitle={opp.role_title}
-              compact
-            />
+            <>
+              {!draft && onRegenerateDraft && (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-gray-500">Sin borrador (IA no lo generó antes o falló la 2ª llamada).</p>
+                  <button
+                    type="button"
+                    onClick={() => onRegenerateDraft(opp.id)}
+                    disabled={regenerating === opp.id}
+                    className="btn-secondary text-xs py-1.5"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${regenerating === opp.id ? 'animate-pulse' : ''}`} />
+                    {regenerating === opp.id ? 'Generando…' : 'Generar borrador (IA)'}
+                  </button>
+                </div>
+              )}
+              <ApplicationDraftPanel
+                draft={draft}
+                companyName={opp.company_name}
+                roleTitle={opp.role_title}
+                compact
+              />
+            </>
           )}
         </div>
       </div>
@@ -184,6 +200,7 @@ export default function Inbox() {
   const [confirming, setConfirming] = useState(null);
   const [applying, setApplying] = useState(null);
   const [researching, setResearching] = useState(null);
+  const [regenerating, setRegenerating] = useState(null);
   const [applyConfigured, setApplyConfigured] = useState(false);
   const [remotePolicy, setRemotePolicy] = useState(null);
   const [hiddenRemoteCount, setHiddenRemoteCount] = useState(0);
@@ -216,6 +233,7 @@ export default function Inbox() {
 
   const handleScan = async () => {
     setScanning(true);
+    setToast({ message: 'Buscando ofertas en YC…', type: 'success' });
     try {
       const result = await api.opportunities.scan();
       if (result.skipped) {
@@ -245,6 +263,12 @@ export default function Inbox() {
 
   const handleApply = async (id) => {
     setApplying(id);
+    setToast({
+      message: applyConfigured
+        ? 'Abriendo Chrome y aplicando (puede tardar 1–3 min)…'
+        : 'Abriendo el formulario en YC…',
+      type: 'success',
+    });
     try {
       const result = await api.opportunities.apply(id, applyConfigured ? undefined : 'manual');
 
@@ -295,6 +319,19 @@ export default function Inbox() {
       setOpportunities(prev => prev.filter(o => o.id !== id));
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
+    }
+  };
+
+  const handleRegenerateDraft = async (id) => {
+    setRegenerating(id);
+    try {
+      const updated = await api.opportunities.regenerateDraft(id);
+      setOpportunities(prev => prev.map(o => (o.id === id ? updated : o)));
+      setToast({ message: 'Borrador de aplicación listo', type: 'success' });
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setRegenerating(null);
     }
   };
 
@@ -356,10 +393,18 @@ export default function Inbox() {
       {!applyConfigured && (
         <div className="card p-4 mb-4 border-amber-500/30 bg-amber-500/5">
           <p className="text-sm text-amber-200/90">
-            <strong>Aplicar en YC</strong> abre el formulario (siempre).
-            <strong>Auto-aplicar</strong> rellena tu perfil WaaS + envía (abre Chrome la 1ª vez).
-            Sesión: <code className="text-xs">npm run yc:login</code>
-            {' '}→ <Link to="/settings" className="text-accent-light underline">Ajustes</Link>.
+            <strong>Auto-aplicar</strong> (scanner + botón) necesita sesión YC una sola vez:
+            <code className="text-xs mx-1">npm run yc:login</code>
+            (resuelve captcha en Chrome). CV activo en CV Manager.
+            {' '}<Link to="/settings" className="text-accent-light underline">Ajustes</Link>.
+          </p>
+        </div>
+      )}
+
+      {applyConfigured && (
+        <div className="card p-4 mb-4 border-emerald-500/30 bg-emerald-500/5">
+          <p className="text-sm text-emerald-200/90">
+            <strong>Auto-aplicar activo.</strong> El scanner aplica solo a ofertas remotas con buen match (cada ~15 min).
           </p>
         </div>
       )}
@@ -402,9 +447,11 @@ export default function Inbox() {
               onConfirm={handleConfirm}
               onDismiss={handleDismiss}
               onResearch={handleResearch}
+              onRegenerateDraft={handleRegenerateDraft}
               applying={applying}
               confirming={confirming}
               researching={researching}
+              regenerating={regenerating}
               applyConfigured={applyConfigured}
             />
           ))}

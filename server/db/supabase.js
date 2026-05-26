@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 let supabase = null;
 
@@ -17,6 +18,8 @@ export function getSupabase() {
 
     supabase = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
+      // Node.js < 22 no tiene WebSocket nativo (requerido por @supabase/realtime-js)
+      realtime: { transport: ws },
     });
   }
   return supabase;

@@ -9,7 +9,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: `http://localhost:${API_PORT}`,
+        // 127.0.0.1 evita AggregateError en Windows (localhost → IPv6 vs IPv4)
+        target: `http://127.0.0.1:${API_PORT}`,
         changeOrigin: true,
       },
     },

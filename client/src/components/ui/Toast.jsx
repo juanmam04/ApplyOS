@@ -8,7 +8,7 @@ export default function Toast({ message, type = 'error', onClose }) {
   }, [onClose]);
 
   return (
-    <div className={`fixed bottom-20 md:bottom-6 right-4 z-50 flex items-start gap-3 px-4 py-3 rounded-xl border shadow-lg max-w-sm ${
+    <div className={`fixed bottom-24 md:bottom-6 right-4 z-[100] flex items-start gap-3 px-4 py-3 rounded-xl border shadow-lg max-w-sm ${
       type === 'error' ? 'bg-red-950/90 border-red-500/30 text-red-200' : 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200'
     }`}>
       {type === 'error' ? <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" /> : <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />}

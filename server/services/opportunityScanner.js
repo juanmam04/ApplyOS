@@ -7,8 +7,31 @@ import { isRemoteEligible, getRemotePolicy } from './remotePolicy.js';
 
 const ROLES = ['full-stack', 'backend', 'frontend'];
 const MIN_SCORE = parseInt(process.env.MIN_OPPORTUNITY_SCORE || '45', 10);
+const MIN_AUTO_APPLY_SCORE = parseInt(
+  process.env.MIN_AUTO_APPLY_SCORE || String(MIN_SCORE),
+  10,
+);
 
 const STALE_SCAN_MS = 10 * 60 * 1000; // 10 min
+
+function isAutoApplyEnabled() {
+  return process.env.AUTO_APPLY !== 'false' && isAutoApplyConfigured();
+}
+
+async function maybeAutoApply(opp) {
+  if (!isAutoApplyEnabled()) return null;
+  if (!opp?.id || opp.match_score < MIN_AUTO_APPLY_SCORE) return null;
+
+  try {
+    const result = await applyOpportunity(opp.id);
+    const msg = result.applyResult?.message || result.message || 'ok';
+    console.log(`🤖 Auto-aplicado: ${opp.company_name} — ${opp.role_title} (${msg})`);
+    return result;
+  } catch (err) {
+    console.warn(`🤖 Auto-apply falló (${opp.role_title}):`, err.message);
+    return null;
+  }
+}
 
 export async function runOpportunityScan() {
   const store = getStore();
@@ -57,6 +80,7 @@ export async function runOpportunityScan() {
     }
 
     const created = [];
+    let autoApplied = 0;
     const limit = parseInt(process.env.SCAN_BATCH_SIZE || '5', 10);
 
     for (const raw of unique.slice(0, limit)) {
@@ -111,6 +135,7 @@ export async function runOpportunityScan() {
           status: 'pending',
         });
         created.push(opp);
+        if (await maybeAutoApply(opp)) autoApplied++;
       } catch (err) {
         console.warn('Enrich failed:', raw.job_url, err.message);
         try {
@@ -143,9 +168,11 @@ export async function runOpportunityScan() {
     return {
       scanned: unique.length,
       created: created.length,
+      auto_applied: autoApplied,
       pending: pending.length,
       skipped_non_remote: skippedNonRemote,
       remote_policy: getRemotePolicy(),
+      auto_apply_enabled: isAutoApplyEnabled(),
     };
   } catch (err) {
     await store.setScannerState({ is_scanning: false });

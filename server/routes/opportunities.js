@@ -9,6 +9,7 @@ import {
 import { isAutoApplyConfigured } from '../services/autoApply/index.js';
 import { getRemotePolicy, isRemoteEligible } from '../services/remotePolicy.js';
 import { researchStartupBriefForOpportunity } from '../services/opportunityAI.js';
+import { generateApplicationContent } from '../services/ai.js';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.post('/scan/reset', async (_req, res) => {
 router.get('/apply/status', (_req, res) => {
   res.json({
     configured: isAutoApplyConfigured(),
+    auto_apply_enabled: process.env.AUTO_APPLY !== 'false',
     dryRun: process.env.APPLY_DRY_RUN === 'true',
   });
 });
@@ -107,6 +109,33 @@ router.post('/:id/research', async (req, res) => {
 
     const { analysis } = await researchStartupBriefForOpportunity(opp);
     const updated = await store.updateOpportunity(opp.id, { analysis });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:id/regenerate-draft', async (req, res) => {
+  try {
+    const store = getStore();
+    const opp = await store.getOpportunity(req.params.id);
+    if (!opp) return res.status(404).json({ error: 'Oportunidad no encontrada' });
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(503).json({ error: 'OPENAI_API_KEY no configurada' });
+    }
+    const profile = (await store.getProfile()) || {};
+    const draft = await generateApplicationContent({
+      profile,
+      job: {
+        company_name: opp.company_name,
+        role_title: opp.role_title,
+        tech_stack: opp.tech_stack,
+        description: opp.description,
+        location: opp.location,
+        company_stage: opp.company_stage,
+      },
+    });
+    const updated = await store.updateOpportunity(opp.id, { application_draft: draft });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });

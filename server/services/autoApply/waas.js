@@ -3,13 +3,10 @@ import {
   hasBrowserProfile,
   needsYcLogin,
   isLoggedInOnWaas,
+  isYcAccountLoggedInView,
   PROFILE_DIR,
 } from './browserSession.js';
-import {
-  completeWaasProfile,
-  submitJobApplication,
-  isWaasProfileMarkedComplete,
-} from './waasWizard.js';
+import { submitJobApplication } from './waasWizard.js';
 
 const YC_LOGIN_URL = 'https://account.ycombinator.com/';
 
@@ -31,14 +28,39 @@ async function ensureLoggedIn(context) {
   }
 
   const { user, password } = getCredentials();
-  await page.goto(YC_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await page.locator('#ycid-input').fill(user);
-  await page.locator('#password-input').fill(password);
+  await page.goto(YC_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(2500);
+
+  // Ya logueado: YC muestra el panel de cuenta / "mi usuario" sin #ycid-input
+  if (await isYcAccountLoggedInView(page)) {
+    await page.goto('https://www.workatastartup.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    if (!(await needsYcLogin(page))) return page;
+  }
+
+  const loginField = page.locator('#ycid-input');
+  const hasForm = await loginField.isVisible({ timeout: 8000 }).catch(() => false);
+  if (!hasForm) {
+    if (await needsYcLogin(page)) {
+      throw new Error(
+        'No aparece el formulario de login de YC. Abrí npm run yc:login, iniciá sesión en la ventana de Playwright y no cierres hasta «Sesión guardada».',
+      );
+    }
+    await page.goto('https://www.workatastartup.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    if (await needsYcLogin(page)) {
+      throw new Error(
+        'Sesión incompleta en Work at a Startup (p. ej. OAuth). Ejecutá: npm run yc:login y completá el flujo hasta «Sesión guardada».',
+      );
+    }
+    return page;
+  }
+
+  await loginField.fill(user, { timeout: 15000 });
+  await page.locator('#password-input').fill(password, { timeout: 15000 });
   await page.getByRole('button', { name: /^log in$/i }).click();
   await page.waitForTimeout(4000);
 
   if (await needsYcLogin(page)) {
-    throw new Error('Login falló. Ejecuta: cd server && npm run yc:login');
+    throw new Error('Login falló. Ejecuta: npm run yc:login (en la carpeta ApplyOS)');
   }
 
   await page.goto('https://www.workatastartup.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -58,12 +80,15 @@ export async function applyViaWaas({
   }
 
   if (!hasBrowserProfile()) {
-    throw new Error('Sin sesión YC. Ejecuta: cd server && npm run yc:login');
+    throw new Error('Sin sesión YC. Ejecuta: npm run yc:login (en la carpeta ApplyOS)');
   }
 
-  // Visible por defecto — headless se atasca en skills/captcha
-  const headless = process.env.APPLY_HEADLESS === 'true';
-  const context = await launchWaasBrowser({ headless });
+  // Siempre visible al aplicar — headless no hace clic bien en WaaS
+  const headless = false;
+  const context = await launchWaasBrowser({
+    headless,
+    slowMo: parseInt(process.env.APPLY_SLOW_MO || '80', 10),
+  });
   const progress = (msg) => {
     console.log(`ApplyOS: ${msg}`);
     onProgress?.(msg);
@@ -72,24 +97,27 @@ export async function applyViaWaas({
   try {
     const page = await ensureLoggedIn(context);
 
-    if (!isWaasProfileMarkedComplete()) {
-      progress('Completando perfil WaaS (1ª vez, ~2 min)...');
-      await completeWaasProfile(page, profile, progress);
-    } else {
-      progress('Perfil WaaS listo — aplicando al job...');
-    }
-
-    progress('Enviando aplicación...');
-    return await submitJobApplication(page, applyMeta, {
+    progress('Abriendo formulario del job y aplicando...');
+    const result = await submitJobApplication(page, applyMeta, {
       coverLetter,
       shortMessage,
       cvBuffer,
+      profile,
+      onProgress: progress,
     });
-  } finally {
-    if (!headless) {
-      progress('Cierra la ventana de Chrome cuando termines de revisar.');
+
+    if (!result.success && process.env.APPLY_KEEP_OPEN !== 'false') {
+      progress('Chrome queda abierto 45s por si hay que pulsar algo manualmente...');
+      await page.waitForTimeout(45000).catch(() => {});
     }
-    await context.close().catch(() => {});
+
+    return result;
+  } finally {
+    if (process.env.APPLY_KEEP_OPEN === 'true') {
+      progress('APPLY_KEEP_OPEN=true — cierra Chrome manualmente.');
+    } else {
+      await context.close().catch(() => {});
+    }
   }
 }
 

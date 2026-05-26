@@ -142,7 +142,44 @@ Return JSON with keys: shortMessage, emailApplication, linkedinDM, founderMessag
     ],
   });
 
-  return JSON.parse(response.choices[0]?.message?.content || '{}');
+  const raw = JSON.parse(response.choices[0]?.message?.content || '{}');
+  return normalizeApplicationDraft(raw, { profile, job });
+}
+
+/** OpenAI a veces devuelve snake_case o campos vacíos; unificamos para el cliente. */
+export function normalizeApplicationDraft(raw, { profile, job } = {}) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const pick = (...keys) => {
+    for (const k of keys) {
+      const v = r[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return '';
+  };
+
+  const shortMessage = pick(
+    'shortMessage',
+    'short_message',
+    'message',
+    'application_message',
+  );
+  const emailApplication = pick('emailApplication', 'email_application', 'email');
+  const linkedinDM = pick('linkedinDM', 'linkedin_dm', 'linkedin');
+  const founderMessage = pick('founderMessage', 'founder_message', 'founder');
+  const coverLetter = pick('coverLetter', 'cover_letter', 'cover');
+
+  const name = profile?.full_name || 'there';
+  const company = job?.company_name || 'your team';
+  const role = job?.role_title || 'this role';
+  const fallback = `Hi — I'm ${name}. I'm very interested in the ${role} role at ${company}. I have a strong background in product-minded engineering and would love to contribute. Happy to share more about my experience or jump on a quick call.`;
+
+  return {
+    shortMessage: shortMessage || fallback.slice(0, 500),
+    emailApplication: emailApplication || `Subject: ${name} — ${role}\n\n${shortMessage || fallback}`,
+    linkedinDM: linkedinDM || (shortMessage || fallback).slice(0, 280),
+    founderMessage: founderMessage || (shortMessage || fallback).slice(0, 600),
+    coverLetter: coverLetter || (shortMessage || fallback),
+  };
 }
 
 export async function generateInterviewPrepContent({ profile, job }) {

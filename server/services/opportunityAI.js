@@ -69,7 +69,9 @@ Sé exigente pero justo. match_score = media ponderada startup+rol+fit.`,
   const parsed = JSON.parse(response.choices[0]?.message?.content || '{}');
 
   let application_draft = null;
-  if (process.env.OPENAI_API_KEY && parsed.recommendation !== 'skip') {
+  // Siempre intentamos borrador si hay API key (antes se omitía con recommendation "skip",
+  // y las ofertas en inbox quedaban con pestañas vacías aunque quisieras aplicar igual).
+  if (process.env.OPENAI_API_KEY) {
     try {
       application_draft = await generateApplicationContent({
         profile,

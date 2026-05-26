@@ -42,10 +42,12 @@ OPENAI_MODEL=gpt-4o-mini
 
 ```bash
 npm install
-cd server && npm install && cd ..
-cd client && npm install && cd ..
+npm install --prefix server
+npm install --prefix client
 npm run dev
 ```
+
+**PowerShell (Windows):** no uses `&&` en versiones viejas; usá `;` o un comando por línea. Login YC (una vez): `npm run playwright:install` y `npm run yc:login` desde la carpeta del proyecto.
 
 - App: [http://localhost:5173](http://localhost:5173)
 - API: [http://localhost:47291](http://localhost:47291)

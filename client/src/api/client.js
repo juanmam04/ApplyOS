@@ -1,10 +1,21 @@
 const BASE = '/api';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      ...options,
+    });
+  } catch (e) {
+    const msg = e?.message || String(e);
+    if (/Failed to fetch|NetworkError|Load failed|ECONNREFUSED|AbortError/i.test(msg)) {
+      throw new Error(
+        'No hay conexión con el backend. En la carpeta del proyecto ejecutá npm run dev y esperá a ver «ApplyOS server» en la terminal.',
+      );
+    }
+    throw e;
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -85,12 +96,23 @@ export const api = {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000);
       try {
-        const res = await fetch(`${BASE}/opportunities/${id}/apply`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(mode ? { mode } : {}),
-          signal: controller.signal,
-        });
+        let res;
+        try {
+          res = await fetch(`${BASE}/opportunities/${id}/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(mode ? { mode } : {}),
+            signal: controller.signal,
+          });
+        } catch (e) {
+          const msg = e?.message || String(e);
+          if (/Failed to fetch|NetworkError|ECONNREFUSED/i.test(msg)) {
+            throw new Error(
+              'No hay conexión con el backend. Ejecutá npm run dev y esperá a que el server arranque en el puerto 47291.',
+            );
+          }
+          throw e;
+        }
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: res.statusText }));
           throw new Error(err.error || 'Error al aplicar');
@@ -103,6 +125,7 @@ export const api = {
     confirm: (id) => request(`/opportunities/${id}/confirm`, { method: 'POST' }),
     dismiss: (id) => request(`/opportunities/${id}/dismiss`, { method: 'POST' }),
     research: (id) => request(`/opportunities/${id}/research`, { method: 'POST' }),
+    regenerateDraft: (id) => request(`/opportunities/${id}/regenerate-draft`, { method: 'POST' }),
   },
   settings: {
     apply: () => request('/settings/apply'),

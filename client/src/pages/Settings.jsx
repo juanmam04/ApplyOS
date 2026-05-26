@@ -107,14 +107,14 @@ CANDIDATE_COUNTRY=UY`}</pre>
 YC_APPLY_PASSWORD=tu_password
 
 # Una vez (evita captcha):
-# cd server && npm run yc:login`}
+# npm run yc:login`}
           </pre>
           <p className="text-xs text-gray-600 mb-4">
             Usa la misma cuenta de account.ycombinator.com / workatastartup.com.
             Tu username <code className="text-accent-light">juanmamartinez</code> está bien.
             YC bloquea login automático con <strong>captcha</strong> — una vez ejecuta{' '}
-            <code className="text-xs">npm run yc:login</code> en la carpeta server.
-            La primera vez ejecuta: <code className="text-gray-500">cd server && npx playwright install chromium</code>
+            <code className="text-xs">npm run yc:login</code> en la raíz del proyecto (carpeta ApplyOS).
+            La primera vez ejecuta: <code className="text-gray-500">npm run playwright:install</code> (en la carpeta ApplyOS)
           </p>
 
           <button
@@ -127,6 +127,11 @@ YC_APPLY_PASSWORD=tu_password
             {testing ? 'Probando login...' : 'Probar login YC'}
           </button>
 
+          {apply?.auto_apply && apply?.configured && (
+            <p className="text-xs text-emerald-400 mt-3">
+              AUTO_APPLY=true — el scanner envía aplicaciones sin pulsar el botón
+            </p>
+          )}
           {apply?.dryRun && (
             <p className="text-xs text-amber-400 mt-3">Modo dry-run activo — no envía aplicaciones reales</p>
           )}

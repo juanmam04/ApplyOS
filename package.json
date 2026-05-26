@@ -3,11 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/free-port-47291.cjs",
+    "dev:free-port": "node scripts/free-port-47291.cjs",
     "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
     "build": "npm run build --prefix client",
-    "start": "npm run start --prefix server"
+    "start": "npm run start --prefix server",
+    "yc:login": "npm run yc:login --prefix server",
+    "playwright:install": "npm run playwright:install --prefix server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

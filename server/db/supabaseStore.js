@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { normalizeRemoteType } from '../utils/normalize.js';
 
 const PROFILE_JSON = ['skills', 'work_experience', 'projects', 'preferred_roles', 'preferred_countries'];
 const JOB_JSON = ['tech_stack', 'analysis', 'application_draft'];
@@ -220,7 +221,7 @@ export const supabaseStore = {
         job_url: data.job_url || '',
         company_website: data.company_website || '',
         location: data.location || '',
-        remote_type: data.remote_type || 'unknown',
+        remote_type: normalizeRemoteType(data.remote_type),
         salary_range: data.salary_range || '',
         tech_stack: data.tech_stack || [],
         company_stage: data.company_stage || '',
@@ -244,7 +245,7 @@ export const supabaseStore = {
       job_url: data.job_url || '',
       company_website: data.company_website || '',
       location: data.location || '',
-      remote_type: data.remote_type || 'unknown',
+      remote_type: normalizeRemoteType(data.remote_type),
       salary_range: data.salary_range || '',
       tech_stack: data.tech_stack || [],
       company_stage: data.company_stage || '',
@@ -334,7 +335,7 @@ export const supabaseStore = {
         role_title: data.role_title,
         company_website: data.company_website || '',
         location: data.location || '',
-        remote_type: data.remote_type || 'unknown',
+        remote_type: normalizeRemoteType(data.remote_type),
         salary_range: data.salary_range || '',
         tech_stack: data.tech_stack || [],
         company_stage: data.company_stage || '',

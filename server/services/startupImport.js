@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
 import { getStore } from '../db/store.js';
+import { normalizeRemoteType } from '../utils/normalize.js';
 
 function getOpenAI() {
   if (!process.env.OPENAI_API_KEY) {
@@ -103,8 +104,7 @@ function normalizeJob(data, url) {
     job_url: url,
     company_website: data.company_website || '',
     location: data.location || '',
-    remote_type: ['remote', 'hybrid', 'onsite', 'unknown'].includes(data.remote_type)
-      ? data.remote_type : 'unknown',
+    remote_type: normalizeRemoteType(data.remote_type),
     salary_range: data.salary_range || '',
     tech_stack: Array.isArray(data.tech_stack) ? data.tech_stack : [],
     company_stage: data.company_stage || '',
@@ -142,5 +142,8 @@ export async function importJobFromUrl(url, { description } = {}) {
 
 export async function saveImportedJob(jobData) {
   const store = getStore();
-  return store.createJob(jobData);
+  return store.createJob({
+    ...jobData,
+    remote_type: normalizeRemoteType(jobData?.remote_type),
+  });
 }
