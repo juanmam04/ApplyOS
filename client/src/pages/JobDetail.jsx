@@ -8,6 +8,7 @@ import JobForm from '../components/jobs/JobForm';
 import StatusBadge from '../components/ui/StatusBadge';
 import MatchScore from '../components/ui/MatchScore';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import StartupBrief from '../components/opportunities/StartupBrief';
 
 const analysisFields = [
   { key: 'technical_match', label: 'Match técnico', placeholder: '¿Qué tan bien encajan tus skills con el stack?' },
@@ -125,6 +126,9 @@ export default function JobDetail() {
 
       {tab === 'analysis' && (
         <div className="space-y-4">
+          {analysis.startup_brief && (
+            <StartupBrief brief={analysis.startup_brief} companyWebsite={job.company_website} />
+          )}
           <p className="text-sm text-gray-500">
             Completa el análisis manualmente. En el futuro, la IA generará esto automáticamente.
           </p>

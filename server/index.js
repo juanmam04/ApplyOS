@@ -10,6 +10,7 @@ import interviewRoutes from './routes/interview.js';
 import generateRoutes from './routes/generate.js';
 import startupsRoutes from './routes/startups.js';
 import opportunitiesRoutes from './routes/opportunities.js';
+import settingsRoutes from './routes/settings.js';
 import { startScannerWorker } from './services/scannerWorker.js';
 import { initStore, getStore } from './db/store.js';
 
@@ -30,6 +31,7 @@ app.use('/api/interview', interviewRoutes);
 app.use('/api/generate', generateRoutes);
 app.use('/api/startups', startupsRoutes);
 app.use('/api/opportunities', opportunitiesRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ error: err.message || 'Error interno del servidor' });

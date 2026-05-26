@@ -1,33 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Copy, Check, RefreshCw, Send } from 'lucide-react';
+import { RefreshCw, Send } from 'lucide-react';
+import ApplicationDraftPanel from '../components/applications/ApplicationDraftPanel';
 import { api } from '../api/client';
 import PageHeader from '../components/layout/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
-
-const CONTENT_TYPES = [
-  { key: 'shortMessage', label: 'Mensaje corto', desc: 'Para formularios o chat rápido' },
-  { key: 'emailApplication', label: 'Email de aplicación', desc: 'Email formal completo' },
-  { key: 'linkedinDM', label: 'LinkedIn DM', desc: 'Mensaje directo en LinkedIn' },
-  { key: 'founderMessage', label: 'Mensaje al founder', desc: 'Tono directo y personal' },
-  { key: 'coverLetter', label: 'Cover letter', desc: 'Carta de presentación completa' },
-];
-
-function CopyButton({ text }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-  return (
-    <button onClick={copy} className="btn-ghost text-xs">
-      {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-      {copied ? 'Copiado' : 'Copiar'}
-    </button>
-  );
-}
 
 export default function Applications() {
   const [searchParams] = useSearchParams();
@@ -36,8 +14,6 @@ export default function Applications() {
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [activeType, setActiveType] = useState('shortMessage');
-
   useEffect(() => {
     api.jobs.list()
       .then(j => {
@@ -121,34 +97,12 @@ export default function Applications() {
           </div>
 
           {content ? (
-            <div className="grid lg:grid-cols-4 gap-6">
-              <div className="space-y-1">
-                {CONTENT_TYPES.map(t => (
-                  <button
-                    key={t.key}
-                    onClick={() => setActiveType(t.key)}
-                    className={`w-full text-left px-4 py-3 rounded-lg text-sm transition-all ${
-                      activeType === t.key
-                        ? 'bg-accent/15 text-accent-light border border-accent/20'
-                        : 'text-gray-400 hover:bg-surface-overlay hover:text-gray-200'
-                    }`}
-                  >
-                    <div className="font-medium">{t.label}</div>
-                    <div className="text-xs text-gray-600 mt-0.5">{t.desc}</div>
-                  </button>
-                ))}
-              </div>
-              <div className="lg:col-span-3 card p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-200">
-                    {CONTENT_TYPES.find(t => t.key === activeType)?.label}
-                  </h3>
-                  <CopyButton text={content[activeType]} />
-                </div>
-                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
-                  {content[activeType]}
-                </pre>
-              </div>
+            <div className="card p-5">
+              <ApplicationDraftPanel
+                draft={content}
+                companyName={selected?.company_name}
+                roleTitle={selected?.role_title}
+              />
             </div>
           ) : (
             <div className="card p-8 text-center text-sm text-gray-500">

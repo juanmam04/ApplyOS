@@ -1,14 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   CheckCircle, X, RefreshCw, Sparkles, ThumbsUp, ThumbsDown,
-  Building2, MapPin, DollarSign, ExternalLink, Zap, ChevronDown, ChevronUp,
+  Building2, MapPin, DollarSign, ExternalLink, Zap, ChevronDown, ChevronUp, Send, Save,
 } from 'lucide-react';
 import { api } from '../api/client';
 import PageHeader from '../components/layout/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Toast from '../components/ui/Toast';
 import MatchScore from '../components/ui/MatchScore';
+import StartupBrief from '../components/opportunities/StartupBrief';
+import ApplicationDraftPanel from '../components/applications/ApplicationDraftPanel';
 
 function ScoreRing({ label, score, color }) {
   return (
@@ -19,41 +22,10 @@ function ScoreRing({ label, score, color }) {
   );
 }
 
-function ApplicationPreview({ draft }) {
-  const [tab, setTab] = useState('shortMessage');
-  if (!draft) return <p className="text-sm text-gray-500">Sin borrador generado</p>;
-
-  const tabs = [
-    { key: 'shortMessage', label: 'Corto' },
-    { key: 'emailApplication', label: 'Email' },
-    { key: 'linkedinDM', label: 'LinkedIn' },
-    { key: 'founderMessage', label: 'Founder' },
-    { key: 'coverLetter', label: 'Cover letter' },
-  ];
-
-  return (
-    <div>
-      <div className="flex flex-wrap gap-1 mb-3">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-2.5 py-1 rounded text-xs ${tab === t.key ? 'bg-accent/15 text-accent-light' : 'text-gray-500 hover:text-gray-300'}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <pre className="text-xs text-gray-400 whitespace-pre-wrap font-sans leading-relaxed bg-surface-overlay rounded-lg p-3 max-h-40 overflow-y-auto">
-        {draft[tab]}
-      </pre>
-    </div>
-  );
-}
-
-function OpportunityCard({ opp, onConfirm, onDismiss, confirming }) {
+function OpportunityCard({ opp, onApply, onConfirm, onDismiss, onResearch, applying, confirming, researching, applyConfigured }) {
   const [expanded, setExpanded] = useState(true);
   const draft = opp.application_draft;
+  const startupBrief = opp.analysis?.startup_brief;
 
   return (
     <article className="card border-accent/20 overflow-hidden">
@@ -83,13 +55,35 @@ function OpportunityCard({ opp, onConfirm, onDismiss, confirming }) {
         <div className="flex flex-wrap gap-3 mt-3 text-xs text-gray-500">
           {opp.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{opp.location}</span>}
           {opp.salary_range && <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />{opp.salary_range}</span>}
+          {opp.remote_type === 'remote' && (
+            <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded font-medium">Remoto</span>
+          )}
           {opp.tech_stack?.map(t => (
             <span key={t} className="px-1.5 py-0.5 bg-surface-overlay rounded">{t}</span>
           ))}
         </div>
       </div>
 
-      <div className="p-5 grid lg:grid-cols-2 gap-6">
+      <div className="px-5 pb-5">
+        {startupBrief ? (
+          <StartupBrief brief={startupBrief} companyWebsite={opp.company_website} />
+        ) : (
+          <div className="rounded-xl border border-dashed border-surface-border p-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-500">Sin explicación de la startup todavía.</p>
+            <button
+              type="button"
+              onClick={() => onResearch(opp.id)}
+              disabled={researching === opp.id}
+              className="btn-secondary text-xs py-1.5"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${researching === opp.id ? 'animate-pulse' : ''}`} />
+              {researching === opp.id ? 'Investigando...' : 'Investigar startup'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="p-5 pt-0 grid lg:grid-cols-2 gap-6 border-t border-surface-border/50">
         <div>
           <div className="flex items-center gap-1.5 text-emerald-400 text-sm font-medium mb-2">
             <ThumbsUp className="w-4 h-4" /> Pros
@@ -130,18 +124,44 @@ function OpportunityCard({ opp, onConfirm, onDismiss, confirming }) {
             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             Borrador de aplicación (IA)
           </button>
-          {expanded && <ApplicationPreview draft={draft} />}
+          {expanded && (
+            <ApplicationDraftPanel
+              draft={draft}
+              companyName={opp.company_name}
+              roleTitle={opp.role_title}
+              compact
+            />
+          )}
         </div>
       </div>
 
+      {opp.apply_status === 'failed' && opp.apply_error && (
+        <div className="px-5 pb-2">
+          <p className="text-xs text-red-400 bg-red-500/10 rounded-lg p-2">{opp.apply_error}</p>
+        </div>
+      )}
+
       <div className="p-5 border-t border-surface-border flex flex-wrap gap-3 bg-surface-overlay/30">
+        <button
+          onClick={() => onApply(opp.id)}
+          disabled={applying === opp.id}
+          className="btn-primary flex-1 min-w-[200px] py-3 text-base"
+        >
+          <Send className="w-5 h-5" />
+          {applying === opp.id
+            ? 'Aplicando (2-3 min)...'
+            : applyConfigured
+              ? 'Aplicar (auto)'
+              : 'Aplicar en YC'}
+        </button>
         <button
           onClick={() => onConfirm(opp.id)}
           disabled={confirming === opp.id}
-          className="btn-primary flex-1 min-w-[200px] py-3 text-base"
+          className="btn-secondary"
+          title="Solo guardar en tu tracker sin enviar"
         >
-          <CheckCircle className="w-5 h-5" />
-          {confirming === opp.id ? 'Confirmando...' : 'Confirmar aplicación'}
+          <Save className="w-4 h-4" />
+          {confirming === opp.id ? '...' : 'Marcar como aplicada'}
         </button>
         <button onClick={() => onDismiss(opp.id)} className="btn-secondary">
           <X className="w-4 h-4" /> Descartar
@@ -159,22 +179,37 @@ export default function Inbox() {
   const [opportunities, setOpportunities] = useState([]);
   const [scanner, setScanner] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [confirming, setConfirming] = useState(null);
+  const [applying, setApplying] = useState(null);
+  const [researching, setResearching] = useState(null);
+  const [applyConfigured, setApplyConfigured] = useState(false);
+  const [remotePolicy, setRemotePolicy] = useState(null);
+  const [hiddenRemoteCount, setHiddenRemoteCount] = useState(0);
   const [toast, setToast] = useState(null);
 
   const load = useCallback(() => {
+    setLoadError(null);
     api.opportunities.list()
-      .then(({ opportunities: opps, scanner: sc }) => {
-        setOpportunities(opps);
+      .then(({ opportunities: opps, scanner: sc, remote_policy: rp, hidden_non_remote: hidden }) => {
+        setOpportunities(opps || []);
         setScanner(sc);
+        if (rp) setRemotePolicy(rp);
+        setHiddenRemoteCount(hidden?.length || 0);
       })
-      .catch(err => setToast({ message: err.message, type: 'error' }))
+      .catch(err => {
+        setLoadError(err.message);
+        setOpportunities([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     load();
+    api.opportunities.applyStatus()
+      .then(s => setApplyConfigured(s.configured))
+      .catch(() => setApplyConfigured(false));
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [load]);
@@ -183,12 +218,23 @@ export default function Inbox() {
     setScanning(true);
     try {
       const result = await api.opportunities.scan();
-      setToast({
-        message: result.skipped
-          ? 'Escaneo en progreso...'
-          : `${result.created} nuevas oportunidades encontradas`,
-        type: 'success',
-      });
+      if (result.skipped) {
+        await fetch('/api/opportunities/scan/reset', { method: 'POST' });
+        const retry = await api.opportunities.scan();
+        setToast({
+          message: retry.created > 0
+            ? `${retry.created} oportunidades encontradas (${retry.pending} en inbox)`
+            : `Escaneadas ${retry.scanned} ofertas. ${retry.pending} en tu inbox.`,
+          type: 'success',
+        });
+      } else {
+        setToast({
+          message: result.created > 0
+            ? `${result.created} nuevas oportunidades (${result.pending} en inbox)`
+            : `Revisadas ${result.scanned} ofertas. Ya tienes ${result.pending} en inbox.`,
+          type: 'success',
+        });
+      }
       load();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
@@ -197,11 +243,43 @@ export default function Inbox() {
     }
   };
 
+  const handleApply = async (id) => {
+    setApplying(id);
+    try {
+      const result = await api.opportunities.apply(id, applyConfigured ? undefined : 'manual');
+
+      if (result.manual && result.apply_url) {
+        window.open(result.apply_url, '_blank', 'noopener,noreferrer');
+        setToast({
+          message: result.message || 'Formulario abierto en YC. Cuando termines, pulsa «Marcar como aplicada».',
+          type: 'success',
+        });
+        load();
+        return;
+      }
+
+      const { job, applyResult } = result;
+      setToast({
+        message: applyResult?.message || `¡Aplicación enviada a ${job.company_name}!`,
+        type: 'success',
+      });
+      load();
+      setTimeout(() => navigate(`/jobs/${job.id}`), 1200);
+    } catch (err) {
+      const msg = err.name === 'AbortError'
+        ? 'Tardó demasiado. Revisa si Chrome quedó abierto completando WaaS, o usa «Aplicar en YC».'
+        : err.message;
+      setToast({ message: msg, type: 'error' });
+    } finally {
+      setApplying(null);
+    }
+  };
+
   const handleConfirm = async (id) => {
     setConfirming(id);
     try {
       const { job } = await api.opportunities.confirm(id);
-      setToast({ message: '¡Aplicación confirmada y guardada!', type: 'success' });
+      setToast({ message: 'Guardado en tu tracker (sin enviar a la startup)', type: 'success' });
       load();
       setTimeout(() => navigate(`/jobs/${job.id}`), 1000);
     } catch (err) {
@@ -220,7 +298,33 @@ export default function Inbox() {
     }
   };
 
+  const handleResearch = async (id) => {
+    setResearching(id);
+    try {
+      const updated = await api.opportunities.research(id);
+      setOpportunities(prev => prev.map(o => (o.id === id ? updated : o)));
+      setToast({ message: 'Explicación de la startup lista', type: 'success' });
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setResearching(null);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
+
+  if (loadError) {
+    return (
+      <div>
+        <PageHeader title="Inbox" subtitle="Error al conectar con el servidor" />
+        <div className="card p-8 text-center">
+          <p className="text-red-400 text-sm mb-4">{loadError}</p>
+          <p className="text-gray-500 text-sm mb-4">¿Está corriendo el servidor? Ejecuta <code className="text-accent-light">npm run dev</code></p>
+          <button onClick={() => { setLoading(true); load(); }} className="btn-primary">Reintentar</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -228,7 +332,7 @@ export default function Inbox() {
 
       <PageHeader
         title="Inbox"
-        subtitle="ApplyOS busca startups, analiza fit y prepara tu aplicación. Solo confirmas."
+        subtitle="ApplyOS busca, prepara y aplica por ti en Work at a Startup (YC)."
         action={
           <button onClick={handleScan} className="btn-secondary" disabled={scanning || scanner?.is_scanning}>
             <RefreshCw className={`w-4 h-4 ${scanning || scanner?.is_scanning ? 'animate-spin' : ''}`} />
@@ -236,6 +340,29 @@ export default function Inbox() {
           </button>
         }
       />
+
+      {remotePolicy?.remote_only && (
+        <div className="card p-4 mb-4 border-emerald-500/25 bg-emerald-500/5">
+          <p className="text-sm text-emerald-200/90">
+            Filtro activo: <strong>solo remoto</strong> desde Uruguay ({remotePolicy.candidate_country}).
+            Se excluyen presencial, híbrido y &quot;Remote US only&quot;.
+            {hiddenRemoteCount > 0 && (
+              <> · <span className="text-gray-500">{hiddenRemoteCount} ofertas antiguas ocultas (no remotas).</span></>
+            )}
+          </p>
+        </div>
+      )}
+
+      {!applyConfigured && (
+        <div className="card p-4 mb-4 border-amber-500/30 bg-amber-500/5">
+          <p className="text-sm text-amber-200/90">
+            <strong>Aplicar en YC</strong> abre el formulario (siempre).
+            <strong>Auto-aplicar</strong> rellena tu perfil WaaS + envía (abre Chrome la 1ª vez).
+            Sesión: <code className="text-xs">npm run yc:login</code>
+            {' '}→ <Link to="/settings" className="text-accent-light underline">Ajustes</Link>.
+          </p>
+        </div>
+      )}
 
       <div className="card p-4 mb-6 flex flex-wrap items-center gap-4 border-accent/15">
         <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -271,9 +398,14 @@ export default function Inbox() {
             <OpportunityCard
               key={opp.id}
               opp={opp}
+              onApply={handleApply}
               onConfirm={handleConfirm}
               onDismiss={handleDismiss}
+              onResearch={handleResearch}
+              applying={applying}
               confirming={confirming}
+              researching={researching}
+              applyConfigured={applyConfigured}
             />
           ))}
         </div>

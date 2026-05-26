@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "node --watch index.js",
     "start": "node index.js",
-    "db:migrate": "node db/migrate.js"
+    "db:migrate": "node db/migrate.js",
+    "yc:login": "node scripts/yc-login.js",
+    "waas:reset-profile": "node -e \"import fs from 'fs';import os from 'os';import path from 'path';const f=path.join(os.homedir(),'.applyos','waas-profile-complete');if(fs.existsSync(f))fs.unlinkSync(f);console.log('Flag borrado');\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
@@ -16,6 +18,8 @@
     "multer": "^1.4.5-lts.1",
     "openai": "^4.104.0",
     "pdf-parse": "^1.1.1",
-    "pg": "^8.21.0"
+    "pdfkit": "^0.18.0",
+    "pg": "^8.21.0",
+    "playwright": "^1.60.0"
   }
 }

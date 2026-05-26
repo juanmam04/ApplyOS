@@ -95,8 +95,13 @@ router.get('/:id/file', async (req, res) => {
     if (!cv) return res.status(404).json({ error: 'CV no encontrado' });
 
     const buffer = await downloadCvPdf(cv.storage_path);
+    const asDownload = req.query.download === '1' || req.query.download === 'true';
+    const safeName = (cv.original_name || 'cv.pdf').replace(/[^\w.\- ]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${cv.original_name}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `${asDownload ? 'attachment' : 'inline'}; filename="${safeName}"`,
+    );
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err.message });

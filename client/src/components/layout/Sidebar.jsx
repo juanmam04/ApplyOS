@@ -39,7 +39,7 @@ export default function Sidebar() {
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive
                   ? 'bg-accent/15 text-accent-light border border-accent/20'
-                  : item.highlight
+                  : highlight
                     ? 'text-gray-300 hover:text-white hover:bg-surface-overlay'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-surface-overlay'
               }`

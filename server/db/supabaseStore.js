@@ -2,7 +2,7 @@ import { getSupabase } from './supabase.js';
 
 const PROFILE_JSON = ['skills', 'work_experience', 'projects', 'preferred_roles', 'preferred_countries'];
 const JOB_JSON = ['tech_stack', 'analysis', 'application_draft'];
-const OPP_JSON = ['tech_stack', 'pros', 'cons', 'analysis', 'application_draft'];
+const OPP_JSON = ['tech_stack', 'pros', 'cons', 'analysis', 'application_draft', 'apply_meta'];
 const PREP_JSON = ['technical_questions', 'product_questions', 'project_questions', 'servo_questions', 'questions_to_ask'];
 
 function parseRow(row, jsonFields) {
@@ -346,6 +346,10 @@ export const supabaseStore = {
         cons: data.cons || [],
         analysis: data.analysis || null,
         application_draft: data.application_draft || null,
+        apply_meta: data.apply_meta || null,
+        apply_status: data.apply_status || '',
+        apply_error: data.apply_error || '',
+        applied_at: data.applied_at || null,
         status: data.status || 'pending',
       })
       .select()
@@ -362,16 +366,33 @@ export const supabaseStore = {
   },
 
   async getScannerState() {
-    const { data, error } = await getSupabase().from('scanner_state').select('*').eq('id', 1).single();
-    if (error?.code === 'PGRST116') return { id: 1, is_scanning: false };
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await getSupabase().from('scanner_state').select('*').eq('id', 1).single();
+      if (error?.code === 'PGRST116') return { id: 1, is_scanning: false, last_scan_at: null, last_scan_count: 0 };
+      if (error) return { id: 1, is_scanning: false, last_scan_at: null, last_scan_count: 0 };
+      return data;
+    } catch {
+      return { id: 1, is_scanning: false, last_scan_at: null, last_scan_count: 0 };
+    }
   },
 
   async setScannerState(patch) {
-    const { error } = await getSupabase()
-      .from('scanner_state')
-      .upsert({ id: 1, ...patch }, { onConflict: 'id' });
-    if (error) throw error;
+    try {
+      const { error } = await getSupabase()
+        .from('scanner_state')
+        .upsert({ id: 1, ...patch }, { onConflict: 'id' });
+      if (error) console.warn('scanner_state:', error.message);
+    } catch (err) {
+      console.warn('scanner_state:', err.message);
+    }
+  },
+
+  async listOpportunitiesSafe(status = 'pending') {
+    try {
+      return await this.listOpportunities(status);
+    } catch (err) {
+      if (err.message?.includes('opportunities')) return [];
+      throw err;
+    }
   },
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Check, Trash2, Eye, Star, Sparkles } from 'lucide-react';
+import { Upload, FileText, Check, Trash2, Eye, Download, Star, Sparkles } from 'lucide-react';
+import { downloadFromUrl } from '../utils/download';
 import { api } from '../api/client';
 import PageHeader from '../components/layout/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -69,6 +70,14 @@ export default function CVManager() {
     }
   };
 
+  const handleDownload = async (cv) => {
+    try {
+      await downloadFromUrl(api.cv.downloadUrl(cv.id), cv.original_name || 'cv.pdf');
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar esta versión del CV?')) return;
     await api.cv.delete(id);
@@ -117,6 +126,9 @@ export default function CVManager() {
               <a href={api.cv.fileUrl(active.id)} target="_blank" rel="noopener noreferrer" className="btn-secondary">
                 <Eye className="w-4 h-4" /> Ver PDF
               </a>
+              <button type="button" onClick={() => handleDownload(active)} className="btn-secondary">
+                <Download className="w-4 h-4" /> Descargar
+              </button>
             </div>
           </div>
           {active.extracted_text && (
@@ -157,9 +169,12 @@ export default function CVManager() {
                 )}
               </div>
               <div className="flex gap-2">
-                <a href={api.cv.fileUrl(cv.id)} target="_blank" rel="noopener noreferrer" className="btn-ghost">
+                <a href={api.cv.fileUrl(cv.id)} target="_blank" rel="noopener noreferrer" className="btn-ghost" title="Ver PDF">
                   <Eye className="w-4 h-4" />
                 </a>
+                <button type="button" onClick={() => handleDownload(cv)} className="btn-ghost" title="Descargar PDF">
+                  <Download className="w-4 h-4" />
+                </button>
                 {!cv.is_active && (
                   <button onClick={() => handleActivate(cv.id)} className="btn-secondary text-xs py-1.5">
                     Activar

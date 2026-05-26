@@ -6,7 +6,7 @@ let store = null;
 
 function needsMigration(err) {
   const msg = err?.message || '';
-  return (msg.includes('profile') || msg.includes('opportunities'))
+  return (msg.includes('profile') || msg.includes('opportunities') || msg.includes('scanner_state'))
     && (msg.includes('schema cache') || msg.includes('does not exist'));
 }
 

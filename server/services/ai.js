@@ -110,6 +110,11 @@ function normalizeProfile(data) {
   };
 }
 
+const APPLICATION_ENGLISH_RULES = `CRITICAL: Write ALL application text in English only (US English).
+These messages go directly to startups (YC, US/international). Never use Spanish.
+Tone: professional, warm, concise, confident — typical startup hiring communication.
+No placeholders like [Company] — use real company and role names from the job data.`;
+
 export async function generateApplicationContent({ profile, job }) {
   const openai = getClient();
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -121,9 +126,14 @@ export async function generateApplicationContent({ profile, job }) {
     messages: [
       {
         role: 'system',
-        content: `Genera mensajes de aplicación personalizados en español para una startup.
-Devuelve JSON con keys: shortMessage, emailApplication, linkedinDM, founderMessage, coverLetter.
-Sé conciso, auténtico y específico para el rol. No uses placeholders.`,
+        content: `${APPLICATION_ENGLISH_RULES}
+
+Return JSON with keys: shortMessage, emailApplication, linkedinDM, founderMessage, coverLetter.
+- shortMessage: 2-4 sentences for application forms
+- emailApplication: full email with Subject line first, then body
+- linkedinDM: short LinkedIn message (<300 chars)
+- founderMessage: direct note to founder/CEO tone
+- coverLetter: full cover letter`,
       },
       {
         role: 'user',

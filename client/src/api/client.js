@@ -40,6 +40,7 @@ export const api = {
     activate: (id) => request(`/cv/${id}/activate`, { method: 'PUT' }),
     delete: (id) => request(`/cv/${id}`, { method: 'DELETE' }),
     fileUrl: (id) => `${BASE}/cv/${id}/file`,
+    downloadUrl: (id) => `${BASE}/cv/${id}/file?download=1`,
   },
   jobs: {
     list: (params = {}) => {
@@ -59,12 +60,53 @@ export const api = {
   generate: {
     application: (jobId) => request(`/generate/application/${jobId}`, { method: 'POST' }),
     interviewPrep: (jobId) => request(`/generate/interview-prep/${jobId}`, { method: 'POST' }),
+    coverLetterPdf: async ({ coverLetter, companyName, roleTitle }) => {
+      const res = await fetch(`${BASE}/generate/cover-letter-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coverLetter, companyName, roleTitle }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || 'Error al generar PDF');
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="?([^";\n]+)"?/i);
+      const filename = match ? match[1] : 'Cover_Letter.pdf';
+      return { blob, filename };
+    },
   },
   opportunities: {
     list: (status = 'pending') => request(`/opportunities?status=${status}`),
+    applyStatus: () => request('/opportunities/apply/status'),
     scan: () => request('/opportunities/scan', { method: 'POST' }),
+    apply: async (id, mode) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+      try {
+        const res = await fetch(`${BASE}/opportunities/${id}/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mode ? { mode } : {}),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: res.statusText }));
+          throw new Error(err.error || 'Error al aplicar');
+        }
+        return res.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    },
     confirm: (id) => request(`/opportunities/${id}/confirm`, { method: 'POST' }),
     dismiss: (id) => request(`/opportunities/${id}/dismiss`, { method: 'POST' }),
+    research: (id) => request(`/opportunities/${id}/research`, { method: 'POST' }),
+  },
+  settings: {
+    apply: () => request('/settings/apply'),
+    testApplyLogin: () => request('/settings/apply/test', { method: 'POST' }),
   },
   startups: {
     sources: () => request('/startups/sources'),

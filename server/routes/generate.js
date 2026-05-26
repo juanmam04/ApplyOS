@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getStore } from '../db/store.js';
 import { generateApplicationContent, generateInterviewPrepContent } from '../services/ai.js';
+import { buildCoverLetterPdf } from '../services/coverLetterPdf.js';
 
 const router = Router();
 
@@ -39,6 +40,27 @@ router.post('/interview-prep/:jobId', async (req, res) => {
     res.status(503).json({ error: 'OPENAI_API_KEY no configurada' });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/cover-letter-pdf', async (req, res) => {
+  try {
+    const { coverLetter, companyName, roleTitle } = req.body || {};
+    const profile = await getStore().getProfile() || {};
+    const applicantName = profile.full_name || '';
+
+    const { buffer, filename } = await buildCoverLetterPdf({
+      coverLetter,
+      companyName,
+      roleTitle,
+      applicantName,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

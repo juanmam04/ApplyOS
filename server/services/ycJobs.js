@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { classifyRemote } from './remotePolicy.js';
 
 const YC_JOBS_URL = 'https://www.ycombinator.com/jobs';
 const YC_ROLE_URLS = {
@@ -25,10 +26,8 @@ function parseCardText(text, slug) {
 
   const salary = text.match(/\$[\d.,]+K?\s*-\s*\$[\d.,]+K?(?:\s*(?:USD|CAD|GBP|INR))?|₹[\d.]+M\s*-\s*₹[\d.]+M\s*INR|£[\d.]+K\s*-\s*£[\d.]+K\s*GBP/)?.[0] || '';
 
-  const locMatch = text.match(/•((?:Remote|[\w\s,]+(?:US|CA|GB|IN|Office))[^•]*?)(?:Apply|$)/);
+  const locMatch = text.match(/•((?:Remote|[\w\s,()/]+(?:US|CA|GB|IN|Office|Remote))[^•]*?)(?:Apply|$)/i);
   const location = locMatch?.[1]?.trim() || '';
-
-  const remote_type = /remote/i.test(location) ? 'remote' : 'unknown';
 
   const stack = [];
   if (/full\s*stack/i.test(text)) stack.push('Full stack');
@@ -38,6 +37,8 @@ function parseCardText(text, slug) {
   if (/robotics/i.test(text)) stack.push('Robotics');
 
   const tagline = text.match(/\([SW]\d{2}\)([^•(]+?)(?:\1|\([SW])/i)?.[1]?.trim().slice(0, 120) || '';
+  const roleForRemote = roleTitle.replace(/\s+at\s+.+$/i, '').trim();
+  const { remote_type } = classifyRemote({ location, role_title: roleForRemote, description: tagline });
 
   return {
     company_name: companyName,
@@ -52,7 +53,7 @@ function parseCardText(text, slug) {
   };
 }
 
-async function fetchHtml(url) {
+export async function fetchHtml(url) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {

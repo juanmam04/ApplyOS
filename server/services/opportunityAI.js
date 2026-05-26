@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { generateApplicationContent } from './ai.js';
+import { explainStartupForUser } from './startupResearch.js';
 
 function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -9,6 +10,13 @@ export async function enrichOpportunity(job, profile) {
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   const openai = getOpenAI();
 
+  let startup_brief = null;
+  try {
+    startup_brief = await explainStartupForUser(job);
+  } catch (err) {
+    console.warn('Startup research failed:', job.company_name, err.message);
+  }
+
   const response = await openai.chat.completions.create({
     model,
     temperature: 0.3,
@@ -17,6 +25,12 @@ export async function enrichOpportunity(job, profile) {
       {
         role: 'system',
         content: `Eres un career advisor para ingenieros que buscan roles en startups YC/early-stage.
+
+REGLA EXCLUYENTE: El candidato vive en Uruguay y SOLO acepta trabajo 100% remoto desde Uruguay.
+- Si el rol es presencial, híbrido, solo oficina, o "Remote (US)" / US-only sin opción internacional → recommendation: "skip", match_score máximo 20.
+- Si no está claro que sea remoto global o remoto sin restricción de país → recommendation: "skip".
+- Solo "apply" si es remoto real para alguien en LATAM/Uruguay.
+
 Evalúa la oportunidad vs el perfil del candidato y devuelve JSON:
 
 {
@@ -43,7 +57,11 @@ Sé exigente pero justo. match_score = media ponderada startup+rol+fit.`,
       },
       {
         role: 'user',
-        content: `Perfil:\n${JSON.stringify(profile, null, 2)}\n\nOportunidad:\n${JSON.stringify(job, null, 2)}`,
+        content: `Perfil:\n${JSON.stringify(profile, null, 2)}\n\nOportunidad:\n${JSON.stringify(job, null, 2)}${
+          startup_brief
+            ? `\n\nQué hace la startup (para tu evaluación):\n${JSON.stringify(startup_brief, null, 2)}`
+            : ''
+        }`,
       },
     ],
   });
@@ -69,17 +87,26 @@ Sé exigente pero justo. match_score = media ponderada startup+rol+fit.`,
     }
   }
 
+  const analysis = parsed.analysis || {};
+  if (startup_brief) analysis.startup_brief = startup_brief;
+
   return {
     startup_score: clamp(parsed.startup_score),
     role_score: clamp(parsed.role_score),
     match_score: clamp(parsed.match_score),
     pros: Array.isArray(parsed.pros) ? parsed.pros : [],
     cons: Array.isArray(parsed.cons) ? parsed.cons : [],
-    analysis: parsed.analysis || {},
+    analysis,
     application_draft,
     recommendation: parsed.recommendation || 'apply',
     summary: parsed.summary || '',
   };
+}
+
+export async function researchStartupBriefForOpportunity(opp) {
+  const brief = await explainStartupForUser(opp);
+  const analysis = { ...(opp.analysis || {}), startup_brief: brief };
+  return { startup_brief: brief, analysis };
 }
 
 function clamp(n) {

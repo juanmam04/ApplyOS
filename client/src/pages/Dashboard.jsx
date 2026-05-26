@@ -14,15 +14,25 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     Promise.all([api.jobs.stats(), api.jobs.list()])
-      .then(([s, j]) => { setStats(s); setJobs(j); })
-      .catch(console.error)
+      .then(([s, j]) => { setStats(s); setJobs(j); setError(null); })
+      .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingSpinner />;
+
+  if (error) {
+    return (
+      <div>
+        <PageHeader title="Dashboard" subtitle="Sin conexión al servidor" />
+        <div className="card p-6 text-center text-sm text-red-400">{error}</div>
+      </div>
+    );
+  }
 
   const bestMatches = [...jobs].sort((a, b) => b.match_score - a.match_score).slice(0, 3);
   const nextActions = jobs.filter(j =>
