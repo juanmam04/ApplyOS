@@ -1,9 +1,25 @@
-const BASE = '/api';
+import { apiUrl } from './config.js';
+
+async function parseJsonResponse(res) {
+  const type = res.headers.get('content-type') || '';
+  if (!type.includes('application/json')) {
+    const text = await res.text();
+    if (text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
+      throw new Error(
+        import.meta.env.PROD
+          ? 'La API no responde JSON. En Vercel configurá VITE_API_URL con la URL de tu servidor Express (npm start en server/).'
+          : 'No hay conexión con el backend. Ejecutá npm run dev y esperá «ApplyOS server» en la terminal.',
+      );
+    }
+    throw new Error(text.slice(0, 200) || res.statusText);
+  }
+  return res.json();
+}
 
 async function request(path, options = {}) {
   let res;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(apiUrl(path), {
       headers: { 'Content-Type': 'application/json', ...options.headers },
       ...options,
     });
@@ -18,12 +34,12 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const err = await parseJsonResponse(res).catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'Error en la solicitud');
   }
 
   if (res.status === 204) return null;
-  return res.json();
+  return parseJsonResponse(res);
 }
 
 export const api = {
@@ -40,7 +56,7 @@ export const api = {
     upload: (file) => {
       const form = new FormData();
       form.append('cv', file);
-      return fetch(`${BASE}/cv/upload`, { method: 'POST', body: form }).then(async (res) => {
+      return fetch(apiUrl('/cv/upload'), { method: 'POST', body: form }).then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: res.statusText }));
           throw new Error(err.error || 'Error al subir CV');
@@ -50,8 +66,8 @@ export const api = {
     },
     activate: (id) => request(`/cv/${id}/activate`, { method: 'PUT' }),
     delete: (id) => request(`/cv/${id}`, { method: 'DELETE' }),
-    fileUrl: (id) => `${BASE}/cv/${id}/file`,
-    downloadUrl: (id) => `${BASE}/cv/${id}/file?download=1`,
+    fileUrl: (id) => apiUrl(`/cv/${id}/file`),
+    downloadUrl: (id) => apiUrl(`/cv/${id}/file?download=1`),
   },
   jobs: {
     list: (params = {}) => {
@@ -72,7 +88,7 @@ export const api = {
     application: (jobId) => request(`/generate/application/${jobId}`, { method: 'POST' }),
     interviewPrep: (jobId) => request(`/generate/interview-prep/${jobId}`, { method: 'POST' }),
     coverLetterPdf: async ({ coverLetter, companyName, roleTitle }) => {
-      const res = await fetch(`${BASE}/generate/cover-letter-pdf`, {
+      const res = await fetch(apiUrl('/generate/cover-letter-pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ coverLetter, companyName, roleTitle }),
@@ -92,13 +108,14 @@ export const api = {
     list: (status = 'pending') => request(`/opportunities?status=${status}`),
     applyStatus: () => request('/opportunities/apply/status'),
     scan: () => request('/opportunities/scan', { method: 'POST' }),
+    resetScan: () => request('/opportunities/scan/reset', { method: 'POST' }),
     apply: async (id, mode) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000);
       try {
         let res;
         try {
-          res = await fetch(`${BASE}/opportunities/${id}/apply`, {
+          res = await fetch(apiUrl(`/opportunities/${id}/apply`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(mode ? { mode } : {}),

@@ -237,7 +237,7 @@ export default function Inbox() {
     try {
       const result = await api.opportunities.scan();
       if (result.skipped) {
-        await fetch('/api/opportunities/scan/reset', { method: 'POST' });
+        await api.opportunities.resetScan();
         const retry = await api.opportunities.scan();
         setToast({
           message: retry.created > 0

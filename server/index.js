@@ -30,7 +30,8 @@ function listen(port) {
   });
 }
 
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean);
+app.use(cors(corsOrigin?.length ? { origin: corsOrigin } : {}));
 app.use(express.json({ limit: '10mb' }));
 
 app.use('/api/profile', profileRoutes);

@@ -59,6 +59,18 @@ npm run dev
 3. **Trabajos** — trackea oportunidades
 4. **Aplicaciones / Entrevistas** — contenido generado con OpenAI
 
+## Producción (Vercel + backend)
+
+Vercel solo sirve el **frontend**. La API Express debe estar en otro host (Render, Railway, Fly.io, etc.).
+
+1. Despliega `server/` con `npm start` y las variables de `server/.env.example` (Supabase, OpenAI, etc.).
+2. En el host del servidor, define `CORS_ORIGIN=https://tu-dominio.vercel.app`.
+3. En **Vercel → Project → Settings → Environment Variables** (Production):
+   - `VITE_API_URL` = URL pública del backend **sin** `/api` (ej. `https://applyos-api.onrender.com`)
+4. Redespliega el frontend en Vercel (las variables `VITE_*` se inyectan en el build).
+
+Sin `VITE_API_URL`, el navegador pide `/api` al dominio de Vercel y recibe el HTML de la SPA → error `Unexpected token '<'`.
+
 ## Estructura
 
 ```

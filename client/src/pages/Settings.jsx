@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, Database, Sparkles, Send, RefreshCw } from 'lucide-react';
 import { api } from '../api/client';
+import { apiUrl } from '../api/config';
 import PageHeader from '../components/layout/PageHeader';
 import Toast from '../components/ui/Toast';
 
@@ -11,7 +12,7 @@ export default function Settings() {
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    fetch('/api/health')
+    fetch(apiUrl('/health'))
       .then(r => r.json())
       .then(setHealth)
       .catch(() => setHealth({ status: 'error', storage: 'unknown' }));
